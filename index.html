@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>Contador de Metas</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    :root{
+      --bg:#f3f4f6; --card:#ffffff; --text:#111827; --muted:#6b7280;
+      --primary:#2563eb; --danger:#dc2626; --success:#16a34a; --border:#e5e7eb;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background:var(--bg);color:var(--text);min-height:100vh;
+    }
+    header{
+      position:sticky;top:0;z-index:10;background:#111827;color:white;
+      padding:18px 16px;box-shadow:0 2px 10px rgba(0,0,0,.15)
+    }
+    header .wrap{max-width:820px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    h1{font-size:1.25rem;margin:0}
+    .container{max-width:820px;margin:0 auto;padding:18px 14px 90px}
+    .empty{
+      background:var(--card);border:1px dashed #cbd5e1;border-radius:18px;
+      padding:36px 20px;text-align:center;color:var(--muted)
+    }
+    .grid{display:grid;gap:16px}
+    .card{
+      background:var(--card);border-radius:20px;padding:18px;
+      box-shadow:0 8px 24px rgba(15,23,42,.08);border:1px solid var(--border)
+    }
+    .topline{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+    .name{font-size:1.15rem;font-weight:800;margin:0;word-break:break-word}
+    .value{font-size:1.7rem;font-weight:900;margin:8px 0 2px}
+    .meta{color:var(--muted);font-size:.94rem}
+    .progress-shell{
+      height:14px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:14px 0 8px
+    }
+    .progress-bar{
+      height:100%;background:linear-gradient(90deg,#2563eb,#22c55e);
+      width:0%;transition:width .3s ease;border-radius:999px
+    }
+    .stats{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:.9rem}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+    button{
+      border:0;border-radius:12px;padding:12px 14px;font-size:.96rem;font-weight:700;
+      cursor:pointer;transition:.15s;touch-action:manipulation
+    }
+    button:active{transform:scale(.98)}
+    .primary{background:var(--primary);color:#fff}
+    .secondary{background:#eef2ff;color:#1e3a8a}
+    .danger{background:#fee2e2;color:#991b1b}
+    .ghost{background:#f3f4f6;color:#374151}
+    .small{padding:8px 10px;font-size:.85rem}
+    .fab{
+      position:fixed;right:20px;bottom:20px;border-radius:999px;padding:16px 20px;
+      box-shadow:0 12px 25px rgba(37,99,235,.35);background:var(--primary);color:#fff
+    }
+    dialog{
+      width:min(92vw,430px);border:0;border-radius:20px;padding:0;
+      box-shadow:0 24px 70px rgba(0,0,0,.28)
+    }
+    dialog::backdrop{background:rgba(15,23,42,.62)}
+    .modal{padding:20px}
+    .modal h2{margin:0 0 16px;font-size:1.2rem}
+    label{display:block;font-size:.9rem;font-weight:700;margin:12px 0 6px}
+    input{
+      width:100%;padding:13px 14px;border:1px solid #cbd5e1;border-radius:12px;
+      font-size:1rem;outline:none
+    }
+    input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.14)}
+    .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+    .success-note{
+      color:var(--success);font-weight:800;margin-top:10px
+    }
+    @media(min-width:720px){ .grid{grid-template-columns:1fr 1fr} }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>📊 Contador de Metas</h1>
+      <button id="installBtn" class="small secondary" hidden>Instalar</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="list" class="grid"></div>
+    <div id="empty" class="empty">
+      <h2>Nenhuma meta criada</h2>
+      <p>Toque em “Nova meta” para começar.</p>
+    </div>
+  </main>
+
+  <button class="fab" onclick="openCreate()">＋ Nova meta</button>
+
+  <dialog id="goalDialog">
+    <form class="modal" onsubmit="saveGoal(event)">
+      <h2 id="goalDialogTitle">Nova meta</h2>
+      <input type="hidden" id="goalId" />
+      <label for="goalName">Nome da meta</label>
+      <input id="goalName" required maxlength="60" placeholder="Ex.: Viagem" />
+      <label for="goalTarget">Valor da meta (R$)</label>
+      <input id="goalTarget" required inputmode="decimal" placeholder="1500,00" />
+      <label for="goalCurrent">Valor atual (R$)</label>
+      <input id="goalCurrent" required inputmode="decimal" placeholder="0,00" />
+      <div class="modal-actions">
+        <button type="button" class="ghost" onclick="goalDialog.close()">Cancelar</button>
+        <button type="submit" class="primary">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="valueDialog">
+    <form class="modal" onsubmit="applyValue(event)">
+      <h2 id="valueDialogTitle">Adicionar valor</h2>
+      <input type="hidden" id="valueGoalId" />
+      <input type="hidden" id="valueMode" />
+      <label for="valueAmount">Valor (R$)</label>
+      <input id="valueAmount" required inputmode="decimal" autofocus placeholder="100,00" />
+      <div class="modal-actions">
+        <button type="button" class="ghost" onclick="valueDialog.close()">Cancelar</button>
+        <button type="submit" class="primary">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    const STORAGE_KEY = 'contadorMetas.v1';
+    let goals = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let deferredPrompt;
+
+    function money(v){
+      return Number(v || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+    }
+    function parseMoney(text){
+      let s = String(text).trim().replace(/\s/g,'').replace(/R\$/g,'');
+      if(s.includes(',')) s = s.replace(/\./g,'').replace(',','.');
+      return Number(s);
+    }
+    function persist(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+      render();
+    }
+    function escapeHtml(str){
+      return String(str).replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+      }[m]));
+    }
+    function render(){
+      const list = document.getElementById('list');
+      const empty = document.getElementById('empty');
+      empty.style.display = goals.length ? 'none' : 'block';
+      list.innerHTML = goals.map(g => {
+        const pctRaw = g.target > 0 ? (g.current / g.target) * 100 : 0;
+        const pct = Math.max(0, Math.min(100, pctRaw));
+        const remain = Math.max(0, g.target - g.current);
+        return `
+          <section class="card">
+            <div class="topline">
+              <div>
+                <h2 class="name">${escapeHtml(g.name)}</h2>
+                <div class="value">${money(g.current)}</div>
+                <div class="meta">Meta: ${money(g.target)}</div>
+              </div>
+              <button class="small ghost" onclick="openEdit('${g.id}')">Editar</button>
+            </div>
+            <div class="progress-shell">
+              <div class="progress-bar" style="width:${pct}%"></div>
+            </div>
+            <div class="stats">
+              <span>${pctRaw.toFixed(1).replace('.',',')}%</span>
+              <span>Faltam ${money(remain)}</span>
+            </div>
+            ${g.current >= g.target ? '<div class="success-note">🎉 Meta concluída!</div>' : ''}
+            <div class="actions">
+              <button class="secondary" onclick="openValue('${g.id}','add')">＋ Adicionar</button>
+              <button class="ghost" onclick="openValue('${g.id}','remove')">－ Remover</button>
+              <button class="ghost" onclick="resetGoal('${g.id}')">Zerar</button>
+              <button class="danger" onclick="deleteGoal('${g.id}')">Excluir</button>
+            </div>
+          </section>
+        `;
+      }).join('');
+    }
+
+    function openCreate(){
+      goalDialogTitle.textContent = 'Nova meta';
+      goalId.value = '';
+      goalName.value = '';
+      goalTarget.value = '';
+      goalCurrent.value = '0';
+      goalDialog.showModal();
+    }
+    function openEdit(id){
+      const g = goals.find(x => x.id === id);
+      if(!g) return;
+      goalDialogTitle.textContent = 'Editar meta';
+      goalId.value = g.id;
+      goalName.value = g.name;
+      goalTarget.value = String(g.target).replace('.',',');
+      goalCurrent.value = String(g.current).replace('.',',');
+      goalDialog.showModal();
+    }
+    function saveGoal(e){
+      e.preventDefault();
+      const target = parseMoney(goalTarget.value);
+      const current = parseMoney(goalCurrent.value);
+      if(!Number.isFinite(target) || target <= 0) return alert('Digite uma meta maior que zero.');
+      if(!Number.isFinite(current) || current < 0) return alert('Digite um valor atual válido.');
+      const id = goalId.value;
+      if(id){
+        const g = goals.find(x => x.id === id);
+        g.name = goalName.value.trim();
+        g.target = target;
+        g.current = current;
+      }else{
+        goals.unshift({
+          id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+          name: goalName.value.trim(),
+          target, current
+        });
+      }
+      goalDialog.close();
+      persist();
+    }
+    function openValue(id, mode){
+      valueGoalId.value = id;
+      valueMode.value = mode;
+      valueAmount.value = '';
+      valueDialogTitle.textContent = mode === 'add' ? 'Adicionar valor' : 'Remover valor';
+      valueDialog.showModal();
+      setTimeout(()=>valueAmount.focus(),100);
+    }
+    function applyValue(e){
+      e.preventDefault();
+      const amount = parseMoney(valueAmount.value);
+      if(!Number.isFinite(amount) || amount <= 0) return alert('Digite um valor maior que zero.');
+      const g = goals.find(x => x.id === valueGoalId.value);
+      if(!g) return;
+      if(valueMode.value === 'add') g.current += amount;
+      else g.current = Math.max(0, g.current - amount);
+      valueDialog.close();
+      persist();
+    }
+    function resetGoal(id){
+      if(confirm('Deseja zerar o valor atual desta meta?')){
+        goals.find(x=>x.id===id).current = 0;
+        persist();
+      }
+    }
+    function deleteGoal(id){
+      if(confirm('Deseja excluir esta meta?')){
+        goals = goals.filter(x => x.id !== id);
+        persist();
+      }
+    }
+
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault(); deferredPrompt = e;
+      installBtn.hidden = false;
+    });
+    installBtn.addEventListener('click', async () => {
+      if(!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBtn.hidden = true;
+    });
+
+    if('serviceWorker' in navigator){
+      window.addEventListener('load',()=>navigator.serviceWorker.register('service-worker.js'));
+    }
+    render();
+  </script>
+</body>
+</html>
